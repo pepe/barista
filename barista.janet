@@ -17,17 +17,19 @@
                        (pad2 (t :minutes))
                        (pad2 (t :seconds))))
 
-(def b (sh/$$ ["upower" "-i" "/org/freedesktop/UPower/devices/battery_BAT0"]))
+(try
+ (protect
+  (def b (sh/$$ ["upower" "-i" "/org/freedesktop/UPower/devices/battery_BAT0"]))
 
-(def d (sh/$$ ["brillo"]))
+  (def d (sh/$$ ["light"]))
 
-(def batt
+  (def batt
+    (match (peg/match ~(* ,(capt "state:") ,(capt "energy-rate:")
+                      (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
+                      ,(capt "percentage:")) b)
+       [(s (= s "fully-charged")) e p] "✔"
+       [s e w t p] (string p " " e " " s " to " w " in " t)))
 
-  (match (peg/match ~(* ,(capt "state:") ,(capt "energy-rate:")
-                    (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
-                    ,(capt "percentage:")) b)
-     [(s (= s "fully-charged")) e p] (string s)
-     [s e w t p] (string p " " e " " s " to " w " in " t)
-     ))
+  (print (string/slice d 0 -5) "% | "  batt " | " ts " | riffle"))
+   ([e] (print "Loading")))
 
-(print (string/slice d 0 -5) "% | "  batt " | " ts " | riffle")
