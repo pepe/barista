@@ -13,23 +13,18 @@
                        (t :year)
                        (pad2 (inc (t :month)))
                        (pad2 (inc (t :month-day)))
-                       (pad2 (inc (t :hours)))
+                       (pad2 (t :hours))
                        (pad2 (t :minutes))
                        (pad2 (t :seconds))))
 
-(try
- (protect
-  (def b (sh/$$ ["upower" "-i" "/org/freedesktop/UPower/devices/battery_BAT0"]))
-
-  (def d (sh/$$ ["light"]))
-
-  (def batt
-    (match (peg/match ~(* ,(capt "state:") ,(capt "energy-rate:")
-                      (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
-                      ,(capt "percentage:")) b)
-       [(s (= s "fully-charged")) e p] "✔"
-       [s e w t p] (string p " " e " " s " to " w " in " t)))
-
-  (print (string/slice d 0 -5) "% | "  batt " | " ts " | riffle"))
-   ([e] (print "Loading")))
-
+(defn main [argv]
+  (try
+    (let [b (sh/$< upower -i /org/freedesktop/UPower/devices/battery_BAT0)
+          d (sh/$< light)
+          batt (match (peg/match ~(* ,(capt "state:") ,(capt "energy-rate:")
+                                     (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
+                                     ,(capt "percentage:")) b)
+                 [(s (= s "fully-charged")) e p] "✔"
+                 [s e w t p] (string p " " e " " s " to " w " in " t))]
+      (print (string/slice d 0 -5) "% | " batt " | " ts))
+    ([e] (print "Loading"))))

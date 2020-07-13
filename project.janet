@@ -3,7 +3,7 @@
   :description "Place for tahani"
   :dependencies ["https://github.com/andrewchambers/janet-sh"])
 
-(declare-source
- :name "barista"
- :source @["barista.janet"])
-
+(declare-executable
+  :name "barista"
+  :entry "barista.janet"
+  :install true)
