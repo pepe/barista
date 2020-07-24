@@ -1,5 +1,5 @@
 (declare-project
-  :name "mansion"
+  :name "barista"
   :description "Place for tahani"
   :dependencies ["https://github.com/andrewchambers/janet-sh"])
 
