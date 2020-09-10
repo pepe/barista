@@ -1,0 +1,31 @@
+#!/bin/env janet
+(import sh)
+(import neil/tell :prefix "")
+
+(defn capt [label]
+  ~(* (some (if-not ,label 1)) ,label :s+ '(some (if-not "\n" 1))))
+
+(def capg
+  ~(* ,(capt "state:") ,(capt "energy-rate:")
+      (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
+      ,(capt "percentage:")))
+
+
+(defn main [argv]
+  (try
+    (let [b (sh/$< upower -i /org/freedesktop/UPower/devices/battery_BAT0)
+          batt (match
+                 (peg/match capg b)
+                 [(s (= s "fully-charged")) e p] "✔"
+                 [s e w t p] (string p " " e " " s " to " w " in " t))
+          light (string/slice (sh/$< light) 0 -5)
+          ts (string/trim (sh/$< date))
+          #task (protect
+          #         (if-let [[rid {:name n :project pid :work-intervals iw :state s}] (running)
+          #                  {:name p} (by-id pid)
+          #                  {:start s :note t} (last iw)]
+          #           (string (durf (- (os/time) s)) " @" p " - #" rid " " n ""))
+          #         (string "Last ran: " (get-in (last-running) [1 :name])))
+          ]
+      (print (comment (if (task 0) (task 1) "Neil is not running")) " | " light "% | " batt " | " ts))
+    ([e] (tracev e) (print "Loading"))))

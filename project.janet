@@ -1,9 +1,7 @@
 (declare-project
   :name "barista"
   :description "Place for tahani"
-  :dependencies ["https://github.com/andrewchambers/janet-sh"])
+  :dependencies ["https://github.com/andrewchambers/janet-sh"
+                 "https://github.com/good-place/neil"])
 
-(declare-executable
-  :name "barista"
-  :entry "barista.janet"
-  :install true)
+(declare-binscript :main "barista" :install true)
