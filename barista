@@ -1,6 +1,7 @@
 #!/bin/env janet
 (import sh)
 (import neil/tell :prefix "")
+(import neil/utils)
 
 (defn capt [label]
   ~(* (some (if-not ,label 1)) ,label :s+ '(some (if-not "\n" 1))))
@@ -25,7 +26,7 @@
                 (let [[rid {:name n :project pid :work-intervals iw :state s}] r
                       {:name p} (by-id pid)
                       {:start s :note t} (last iw)]
-                  (string (durf (- (os/time) s)) " @" p " - #" rid " " n ""))
+                  (string (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
                 (string "Last ran: " (get-in (last-running) [1 :name]))))
             [true m] m
             [false _] "Neil is not running?"))
