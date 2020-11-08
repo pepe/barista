@@ -12,30 +12,39 @@
       (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
       ,(capt "percentage:")))
 
+(def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
+
 
 (defn main [_ &opt ntb]
   (default ntb false)
   (tell
-   (forever
-    (def ts (string/trim (sh/$< date)))
-    (def ut (string "up " ((string/split "up " (string/trim (sh/$< uptime))) 1)))
-    (def task
-      (match
-        (protect
-          (if-let [r (:task/running neil)]
-            (let [[rid {:name n :project pid :work-intervals iw :state s}] r
-                  {:name p} (:by-id neil pid)
-                  {:start s :note t} (last iw)]
-              (string (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
-            (string "Last ran: " (get-in (:task/last-ran neil) [1 :name]))))
-        [true m] m
-        [false _] "Office err!"))
-    (if ntb
-      (let [light (string/slice (sh/$< light) 0 -5)
-            b (sh/$< upower -i /org/freedesktop/UPower/devices/battery_BAT0)
-            batt (match (peg/match capg b)
-                   [(s (= s "fully-charged")) e p] "✔"
-                   [s e w t p] (string p " " e " " s " to " w " in " t))]
-        (prin task " | " light "% | " batt " | " ts))
-      (prin task " | " ut " | " ts)) (flush)
-    (os/sleep 1))))
+    (forever
+      (def n (os/date (os/time) true))
+      (def ts (string/format "%s %i/%s/%s %i:%s:%s"
+                             (days (n :week-day))
+                             (- (n :year) 2000)
+                             (utils/pad (inc (n :month)))
+                             (utils/pad (inc (n :month-day)))
+                             (n :hours)
+                             (utils/pad (n :minutes))
+                             (utils/pad (n :seconds))))
+      (def task
+        (match
+          (protect
+            (if-let [r (:task/running neil)]
+              (let [[rid {:name n :project pid :work-intervals iw :state s}] r
+                    {:name p} (:by-id neil pid)
+                    {:start s :note t} (last iw)]
+                (string (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
+              (string "Last ran: " (get-in (:task/last-ran neil) [1 :name]))))
+          [true m] m
+          [false _] "Office err!"))
+      (if ntb
+        (let [light (string/slice (sh/$< light) 0 -5)
+              b (sh/$< upower -i /org/freedesktop/UPower/devices/battery_BAT0)
+              batt (match (peg/match capg b)
+                     [(s (= s "fully-charged")) e p] "✔"
+                     [s e w t p] (string p " " e " " s " to " w " in " t))]
+          (print task " | " light "% | " batt " | " ts))
+        (print task " \u25F7 " ts)) (flush)
+      (os/sleep 1))))
