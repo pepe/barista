@@ -35,11 +35,11 @@
               (let [[rid {:name n :project pid :work-intervals iw}] r
                     {:name p} (:by-id neil pid)
                     {:start s :note t} (last iw)]
-                (string (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
+                (string "\u25b6 " (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
               (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
                     {:name p} (:by-id neil pid)
                     dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                (string "Total: " (string (utils/durf dur) " @" p " - #" rid " " n "")))))
+                (string "\u25fc " (string (utils/durf dur) " @" p " - #" rid " " n "")))))
           [true m] m
           [false _] "Office err!"))
       (if ntb
