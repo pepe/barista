@@ -32,11 +32,14 @@
         (match
           (protect
             (if-let [r (:task/running neil)]
-              (let [[rid {:name n :project pid :work-intervals iw :state s}] r
+              (let [[rid {:name n :project pid :work-intervals iw}] r
                     {:name p} (:by-id neil pid)
                     {:start s :note t} (last iw)]
                 (string (utils/durf (- (os/time) s)) " @" p " - #" rid " " n ""))
-              (string "Last ran: " (get-in (:task/last-ran neil) [1 :name]))))
+              (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
+                    {:name p} (:by-id neil pid)
+                    dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
+                (string "Total: " (string (utils/durf dur) " @" p " - #" rid " " n "")))))
           [true m] m
           [false _] "Office err!"))
       (if ntb
