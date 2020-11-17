@@ -17,14 +17,16 @@
 (defn main [_ &opt ntb]
   (default ntb false)
   (forever
+    (def start (os/clock))
     (def n (os/date (os/time) true))
-    (def ts (string/format "%s %i/%s/%s %i:%s"
+    (def ts (string/format "%s %i/%s/%s %i:%s:%s"
                            (days (n :week-day))
                            (n :year)
                            (utils/pad (inc (n :month)))
                            (utils/pad (inc (n :month-day)))
                            (n :hours)
-                           (utils/pad (n :minutes))))
+                           (utils/pad (n :minutes))
+                           (utils/pad (n :seconds))))
     (def task
       (match
         (protect
@@ -51,4 +53,5 @@
         (print task " \uf5dd " light "% \uf578 " batt " \uf5ef " ts))
       (print task " \u25F7 " ts))
     (flush)
-    (os/sleep 1)))
+    (def dur (- (os/clock) start))
+    (unless (>= dur 1) (os/sleep (- 1 dur)))))
