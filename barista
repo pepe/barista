@@ -1,5 +1,4 @@
 #!/bin/env janet
-(import sh)
 (import neil/tell :prefix "")
 (import neil/utils)
 
@@ -17,20 +16,19 @@
 
 (defn main [_ &opt ntb]
   (default ntb false)
-  (tell
-    (forever
-      (def n (os/date (os/time) true))
-      (def ts (string/format "%s %i/%s/%s %i:%s:%s"
-                             (days (n :week-day))
-                             (- (n :year) 2000)
-                             (utils/pad (inc (n :month)))
-                             (utils/pad (inc (n :month-day)))
-                             (n :hours)
-                             (utils/pad (n :minutes))
-                             (utils/pad (n :seconds))))
-      (def task
-        (match
-          (protect
+  (forever
+    (def n (os/date (os/time) true))
+    (def ts (string/format "%s %i/%s/%s %i:%s"
+                           (days (n :week-day))
+                           (n :year)
+                           (utils/pad (inc (n :month)))
+                           (utils/pad (inc (n :month-day)))
+                           (n :hours)
+                           (utils/pad (n :minutes))))
+    (def task
+      (match
+        (protect
+          (tell
             (if-let [r (:task/running neil)]
               (let [[rid {:name n :project pid :work-intervals iw}] r
                     {:name p :client cid} (:by-id neil pid)
@@ -41,16 +39,16 @@
                     {:name p :client cid} (:by-id neil pid)
                     {:abbrev c} (:by-id neil cid)
                     dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                (string/format "\u25fc %s $%s @%s #%s - %s" (utils/durf dur) c p rid n))))
-          [true m] m
-          [false _] "Office err!"))
-      (if ntb
-        (let [light (string/slice (sh/$< light) 0 -5)
-              b (sh/$< upower -i /org/freedesktop/UPower/devices/battery_BAT0)
-              batt (match (peg/match capg b)
-                     [(s (= s "fully-charged")) e p] "✔"
-                     [s e w t p] (string p " " e " " s " to " w " in " t))]
-          (print task " | " light "% | " batt " | " ts))
-        (print task " \u25F7 " ts))
-      (flush)
-      (os/sleep 1))))
+                (string/format "\u25fc %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
+        [true m] m
+        [false _] "Office err!"))
+    (if ntb
+      (let [mlight (with [f (file/open "/sys/class/backlight/intel_backlight/max_brightness")] (scan-number (string/trim (:read f :all))))
+            alight (with [f (file/open "/sys/class/backlight/intel_backlight/actual_brightness")] (scan-number (string/trim (:read f :all))))
+            light (math/floor (* 100 (/ alight mlight)))
+            b (with [f (file/open "/sys/class/power_supply/BAT0/capacity")] (string/trim (:read f :all)))
+            batt (string/format "%s%%" b)]
+        (print task " \uf5dd " light "% \uf578 " batt " \uf5ef " ts))
+      (print task " \u25F7 " ts))
+    (flush)
+    (os/sleep 1)))
