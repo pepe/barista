@@ -1,6 +1,7 @@
 #!/bin/env janet
 (import neil/tell :prefix "")
 (import neil/utils)
+(import path)
 
 (defn capt [label]
   ~(* (some (if-not ,label 1)) ,label :s+ '(some (if-not "\n" 1))))
@@ -45,13 +46,11 @@
         [true m] m
         [false _] "Office err!"))
     (if ntb
-      (let [mlight (with [f (file/open "/sys/class/backlight/intel_backlight/max_brightness")] (scan-number (string/trim (:read f :all))))
-            alight (with [f (file/open "/sys/class/backlight/intel_backlight/actual_brightness")] (scan-number (string/trim (:read f :all))))
-            light (math/floor (* 100 (/ alight mlight)))
-            b (with [f (file/open "/sys/class/power_supply/BAT0/capacity")] (string/trim (:read f :all)))
-            batt (string/format "%s%%" b)]
-        (print task " \uf5dd " light "% \uf578 " batt " \uf5ef " ts))
-      (print task " \u25F7 " ts))
+      (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
+            light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor)
+            batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim)]
+        (printf "%s \uf5dd %s%% \uf578 %s \uf5ef %s" task light batt ts))
+      (printf "%s \uf5ef %s" task ts))
     (flush)
     (def dur (- (os/clock) start))
     (unless (>= dur 1) (os/sleep (- 1 dur)))))
