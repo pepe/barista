@@ -20,7 +20,7 @@
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
-    (def ts (string/format "%s %i/%s/%s %i:%s:%s"
+    (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
                            (days (n :week-day))
                            (n :year)
                            (utils/pad (inc (n :month)))
@@ -29,28 +29,37 @@
                            (utils/pad (n :minutes))
                            (utils/pad (n :seconds))))
     (def task
-      (match
-        (protect
-          (tell
-            (if-let [r (:task/running neil)]
-              (let [[rid {:name n :project pid :work-intervals iw}] r
-                    {:name p :client cid} (:by-id neil pid)
-                    {:abbrev c} (:by-id neil cid)
-                    {:start s :note t} (last iw)]
-                (string/format "\u25b6 %s $%s @%s - #%s %s" (utils/durf (- (os/time) s)) c p rid n))
-              (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
-                    {:name p :client cid} (:by-id neil pid)
-                    {:abbrev c} (:by-id neil cid)
-                    dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                (string/format "\u25fc %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
-        [true m] m
-        [false _] "Office err!"))
+      (string "\uf5d6 "
+              (match
+                (protect
+                  (tell
+                    (if-let [r (:task/running neil)]
+                      (let [[rid {:name n :project pid :work-intervals iw}] r
+                            {:name p :client cid} (:by-id neil pid)
+                            {:abbrev c} (:by-id neil cid)
+                            {:start s :note t} (last iw)]
+                        (string/format "\uf04b %s $%s @%s - #%s %s" (utils/durf (- (os/time) s)) c p rid n))
+                      (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
+                            {:name p :client cid} (:by-id neil pid)
+                            {:abbrev c} (:by-id neil cid)
+                            dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
+                        (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
+                [true m] m
+                [false _] "Office err!")))
+    (def netp
+      (string
+        "\uf700 "
+        (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
+                       (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
+                         [true _] "\uf00c"
+                         [false _] "\uf00d")) " ")
+        " "))
     (if ntb
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
             light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor)
             batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim)]
-        (printf "%s \uf5dd %s%% \uf578 %s \uf5ef %s" task light batt ts))
-      (printf "%s \uf5ef %s" task ts))
+        (printf "%s %s \uf5dd %s%% \uf578 %s %s" netp task light batt ts))
+      (printf "%s %s %s" netp task ts))
     (flush)
     (def dur (- (os/clock) start))
     (unless (>= dur 1) (os/sleep (- 1 dur)))))
