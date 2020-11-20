@@ -58,8 +58,8 @@
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
             light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor)
             batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim)]
-        (printf "%s %s \uf5dd %s%% \uf578 %s %s" netp task light batt ts))
-      (printf "%s %s %s" netp task ts))
+        (printf "%s %s \uf5dd %s%% \uf578 %s %s" task light batt ts netp))
+      (printf "%s %s %s" task ts netp))
     (flush)
     (def dur (- (os/clock) start))
     (unless (>= dur 1) (os/sleep (- 1 dur)))))
