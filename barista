@@ -2,6 +2,8 @@
 (import neil/tell :prefix "")
 (import neil/utils)
 (import path)
+(import curl)
+(import json)
 
 (defn capt [label]
   ~(* (some (if-not ,label 1)) ,label :s+ '(some (if-not "\n" 1))))
@@ -14,12 +16,28 @@
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
+(defn fetch-weather
+  []
+
+  (def c (curl/easy/init))
+  (def b @"")
+  (:setopt c
+           :url "api.openweathermap.org/data/2.5/weather?q=Nové Město pod Smrkem&units=metric&appid=a548e43683bfe87042ec22ac0a967095"
+           :write-function |(buffer/push-string b $)
+           :no-progress? true)
+
+  (def res (:perform c))
+  (when (not (zero? res))
+    (error (string "Cannot fetch: " (curl/easy/strerror res))))
+  (string/format "\ufa8f %.1f°C " (get-in (json/decode b) ["main" "temp"])))
 
 (defn main [_ &opt ntb]
   (default ntb false)
+  (var weather (fetch-weather))
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
+    (when (zero? (mod (n :minutes) 15)) (set weather (fetch-weather)))
     (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
                            (days (n :week-day))
                            (n :year)
@@ -58,8 +76,8 @@
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
             light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor)
             batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim)]
-        (printf "%s %s \uf5dd %s%% \uf578 %s %s" task light batt ts netp))
-      (printf "%s %s %s" task ts netp))
+        (printf "%s %s %s \uf5dd %s%% \uf578 %s %s" weather task light batt ts netp))
+      (printf "%s %s %s %s" weather task ts netp))
     (flush)
     (def dur (- (os/clock) start))
     (unless (>= dur 1) (os/sleep (- 1 dur)))))
