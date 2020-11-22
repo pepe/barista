@@ -30,24 +30,11 @@
   (when (not (zero? res))
     (error (string "Cannot fetch: " (curl/easy/strerror res))))
   (def m ((json/decode b) "main"))
-  (string/format "\ufa8f %.1f°  %.1f°  %i%%  %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+  (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
 
-(defn main [_ &opt ntb]
-  (default ntb false)
-  (var weather (fetch-weather))
+(defn neilcheck []
   (forever
-    (def start (os/clock))
-    (def n (os/date (os/time) true))
-    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (fetch-weather)))
-    (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
-                           (days (n :week-day))
-                           (n :year)
-                           (utils/pad (inc (n :month)))
-                           (utils/pad (inc (n :month-day)))
-                           (n :hours)
-                           (utils/pad (n :minutes))
-                           (utils/pad (n :seconds))))
-    (def task
+    (yield
       (string "\uf5d6 "
               (match
                 (protect
@@ -64,7 +51,27 @@
                             dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
                         (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
                 [true m] m
-                [false _] "Office err!")))
+                [false _] "loading")))))
+
+(defn print-line [ntb]
+  (var weather (fetch-weather))
+  (def neilcheckf (ev/call neilcheck))
+  (forever
+    (def start (os/clock))
+    (def n (os/date (os/time) true))
+    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (fetch-weather)))
+    (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
+                           (days (n :week-day))
+                           (n :year)
+                           (utils/pad (inc (n :month)))
+                           (utils/pad (inc (n :month-day)))
+                           (n :hours)
+                           (utils/pad (n :minutes))
+                           (utils/pad (n :seconds))))
+    (def task
+      (if (fiber/can-resume? neilcheckf)
+        (resume neilcheckf)
+        "\uf5d6 loading"))
     (def netp
       (string
         "\uf700 "
@@ -81,4 +88,9 @@
       (printf "%s %s %s %s" weather task ts netp))
     (flush)
     (def dur (- (os/clock) start))
-    (unless (>= dur 1) (os/sleep (- 1 dur)))))
+    (unless (>= dur 1) (ev/sleep (- 1 dur)))))
+
+(defn main [_ &opt ntb]
+  (default ntb false)
+  (def f (ev/call print-line ntb))
+  (ev/go f))
