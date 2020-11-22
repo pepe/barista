@@ -29,7 +29,8 @@
   (def res (:perform c))
   (when (not (zero? res))
     (error (string "Cannot fetch: " (curl/easy/strerror res))))
-  (string/format "\ufa8f %.1f°C " (get-in (json/decode b) ["main" "temp"])))
+  (def m ((json/decode b) "main"))
+  (string/format "\ufa8f %.1f°  %.1f°  %i%%  %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
 
 (defn main [_ &opt ntb]
   (default ntb false)
@@ -37,7 +38,7 @@
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
-    (when (zero? (mod (n :minutes) 15)) (set weather (fetch-weather)))
+    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (fetch-weather)))
     (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
                            (days (n :week-day))
                            (n :year)
