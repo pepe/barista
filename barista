@@ -18,14 +18,12 @@
 
 (defn fetch-weather
   []
-
   (def c (curl/easy/init))
   (def b @"")
   (:setopt c
            :url "api.openweathermap.org/data/2.5/weather?q=Nové Město pod Smrkem&units=metric&appid=a548e43683bfe87042ec22ac0a967095"
            :write-function |(buffer/push-string b $)
            :no-progress? true)
-
   (def res (:perform c))
   (when (not (zero? res))
     (error (string "Cannot fetch: " (curl/easy/strerror res))))
@@ -34,7 +32,7 @@
 
 (defn neilcheck []
   (forever
-    (yield
+    (def r
       (string "\uf5d6 "
               (match
                 (protect
@@ -51,7 +49,8 @@
                             dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
                         (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
                 [true m] m
-                [false _] "loading")))))
+                [false e] "loading")))
+    (yield r)))
 
 (defn print-line [ntb]
   (var weather (fetch-weather))
@@ -69,9 +68,7 @@
                            (utils/pad (n :minutes))
                            (utils/pad (n :seconds))))
     (def task
-      (if (fiber/can-resume? neilcheckf)
-        (resume neilcheckf)
-        "\uf5d6 loading"))
+      (if (fiber/can-resume? neilcheckf) (resume neilcheckf) "\uf5d6 loading"))
     (def netp
       (string
         "\uf700 "
@@ -82,9 +79,9 @@
         " "))
     (if ntb
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
-            light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor)
-            batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim)]
-        (printf "%s %s %s \uf5dd %s%% \uf578 %s %s" weather task light batt ts netp))
+            light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string "\uf5dd "))
+            batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 "))]
+        (printf "%s %s %s%% %s%% %s %s" weather task light batt ts netp))
       (printf "%s %s %s %s" weather task ts netp))
     (flush)
     (def dur (- (os/clock) start))
