@@ -16,12 +16,14 @@
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
+(def appid (string/trim (slurp "wmo")))
+
 (defn fetch-weather
   []
   (def c (curl/easy/init))
   (def b @"")
   (:setopt c
-           :url "api.openweathermap.org/data/2.5/weather?q=Nové Město pod Smrkem&units=metric&appid=a548e43683bfe87042ec22ac0a967095"
+           :url (string "api.openweathermap.org/data/2.5/weather?q=Liberec&units=metric&appid=" appid)
            :write-function |(buffer/push-string b $)
            :no-progress? true)
   (def res (:perform c))
