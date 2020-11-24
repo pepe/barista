@@ -16,14 +16,15 @@
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
-(def appid (string/trim (slurp "wmo")))
+(def appid (string/trim (slurp "/home/pp/.config/barista/wmp")))
+(def place (string/trim (slurp "/home/pp/.config/barista/place")))
 
 (defn fetch-weather
   []
   (def c (curl/easy/init))
   (def b @"")
   (:setopt c
-           :url (string "api.openweathermap.org/data/2.5/weather?q=Liberec&units=metric&appid=" appid)
+           :url (string "api.openweathermap.org/data/2.5/weather?q=" place "&units=metric&appid=" appid)
            :write-function |(buffer/push-string b $)
            :no-progress? true)
   (def res (:perform c))
