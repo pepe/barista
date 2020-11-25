@@ -53,29 +53,40 @@
 (defn print-line [ntb]
   (def weatherf (ev/call fetch-weather))
   (def neilcheckf (ev/call neilcheck))
+  (def timestamp
+    (ev/spawn
+      (forever
+        (def n (os/date (os/time) true))
+        (yield
+          (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
+                         (days (n :week-day))
+                         (n :year)
+                         (utils/pad (inc (n :month)))
+                         (utils/pad (inc (n :month-day)))
+                         (n :hours)
+                         (utils/pad (n :minutes))
+                         (utils/pad (n :seconds)))))))
+  (def checknet
+    (ev/spawn
+      (forever
+        (yield
+          (string
+            "\uf700 "
+            (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
+                           (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
+                             [true _] "\uf00c"
+                             [false _] "\uf00d")) " ")
+            " ")))))
   (var weather (resume weatherf))
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
     (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (resume fetch-weather)))
-    (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
-                           (days (n :week-day))
-                           (n :year)
-                           (utils/pad (inc (n :month)))
-                           (utils/pad (inc (n :month-day)))
-                           (n :hours)
-                           (utils/pad (n :minutes))
-                           (utils/pad (n :seconds))))
+    (def ts (resume timestamp))
     (def task (resume neilcheckf))
-    (def netp
-      (string
-        "\uf700 "
-        (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
-                       (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
-                         [true _] "\uf00c"
-                         [false _] "\uf00d")) " ")
-        " "))
+    (def netp (resume checknet))
     (if ntb
+      # @todo fiberize
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
             light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string "\uf5dd "))
             batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 "))]
