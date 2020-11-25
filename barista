@@ -5,15 +5,6 @@
 (import curl)
 (import json)
 
-(defn capt [label]
-  ~(* (some (if-not ,label 1)) ,label :s+ '(some (if-not "\n" 1))))
-
-(def capg
-  ~(* ,(capt "state:")
-      ,(capt "energy-rate:")
-      (? ,(capt '(* "time to " (<- (+ "empty" "full")) ":")))
-      ,(capt "percentage:")))
-
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
 (def appid (string/trim (slurp "/home/pp/.config/barista/wmp")))
@@ -27,19 +18,23 @@
            :url (string "api.openweathermap.org/data/2.5/weather?q=" place "&units=metric&appid=" appid)
            :write-function |(buffer/push-string b $)
            :no-progress? true)
-  (def res (:perform c))
-  (when (not (zero? res))
-    (error (string "Cannot fetch: " (curl/easy/strerror res))))
-  (def m ((json/decode b) "main"))
-  (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+  (forever
+    (def res (:perform c))
+    (when (not (zero? res))
+      (error (string "Cannot fetch: " (curl/easy/strerror res))))
+    (def m ((json/decode b) "main"))
+    (def r (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+    (buffer/clear b)
+    (yield r)))
 
 (defn neilcheck []
-  (forever
-    (def r
-      (string "\uf5d6 "
-              (match
-                (protect
-                  (tell
+  (protect (init))
+  (tell
+    (forever
+      (def r
+        (string "\uf5d6 "
+                (match
+                  (protect
                     (if-let [r (:task/running neil)]
                       (let [[rid {:name n :project pid :work-intervals iw}] r
                             {:name p :client cid} (:by-id neil pid)
@@ -50,18 +45,19 @@
                             {:name p :client cid} (:by-id neil pid)
                             {:abbrev c} (:by-id neil cid)
                             dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                        (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n)))))
-                [true m] m
-                [false e] "loading")))
-    (yield r)))
+                        (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n))))
+                  [true m] m
+                  [false e] "loading")))
+      (yield r))))
 
 (defn print-line [ntb]
-  (var weather (fetch-weather))
+  (def weatherf (ev/call fetch-weather))
   (def neilcheckf (ev/call neilcheck))
+  (var weather (resume weatherf))
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
-    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (fetch-weather)))
+    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (resume fetch-weather)))
     (def ts (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
                            (days (n :week-day))
                            (n :year)
@@ -70,8 +66,7 @@
                            (n :hours)
                            (utils/pad (n :minutes))
                            (utils/pad (n :seconds))))
-    (def task
-      (if (fiber/can-resume? neilcheckf) (resume neilcheckf) "\uf5d6 loading"))
+    (def task (resume neilcheckf))
     (def netp
       (string
         "\uf700 "
