@@ -7,8 +7,8 @@
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
-(def appid (string/trim (slurp "/home/pp/.config/barista/wmp")))
-(def place (string/trim (slurp "/home/pp/.config/barista/place")))
+(def appid (string/trim (slurp "/home/pepe/.config/barista/wmp")))
+(def place (string/trim (slurp "/home/pepe/.config/barista/place")))
 
 (defn fetch-weather
   []
