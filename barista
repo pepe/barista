@@ -6,9 +6,9 @@
 (import json)
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
-(def home (os/getenv "XDG_CONFIG_HOME"))
-(def appid (string/trim (slurp (string home "/barista/wmp"))))
-(def place (string/trim (slurp (string home "/barista/place"))))
+(def home (os/getenv "HOME"))
+(def appid (string/trim (slurp (string home "/.config/barista/wmp"))))
+(def place (string/trim (slurp (string home "/.config/barista/place"))))
 
 (def weather
   (ev/spawn
