@@ -5,98 +5,99 @@
 (import curl)
 (import json)
 
-(def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
-(def home (os/getenv "HOME"))
-(def appid (string/trim (slurp (string home "/.config/barista/wmp"))))
-(def place (string/trim (slurp (string home "/.config/barista/place"))))
 
-(def weather
-  (ev/spawn
-    (def c (curl/easy/init))
-    (def b @"")
-    (:setopt c
-             :url (string "api.openweathermap.org/data/2.5/weather?q=" place "&units=metric&appid=" appid)
-             :write-function |(buffer/push-string b $)
-             :no-progress? true)
-    (forever
-      (def res (:perform c))
-      (when (not (zero? res))
-        (error (string "Cannot fetch: " (curl/easy/strerror res))))
-      (def m ((json/decode b) "main"))
-      (def r (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
-      (buffer/clear b)
-      (yield r))))
-
-(def timestamp
-  (ev/spawn
-    (forever
-      (def n (os/date (os/time) true))
-      (yield
-        (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
-                       (days (n :week-day))
-                       (n :year)
-                       (utils/pad (inc (n :month)))
-                       (utils/pad (inc (n :month-day)))
-                       (n :hours)
-                       (utils/pad (n :minutes))
-                       (utils/pad (n :seconds)))))))
-
-(def checknet
-  (ev/spawn
-    (forever
-      (yield
-        (string
-          "\uf700 "
-          (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
-                         (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
-                           [true _] "\uf00c"
-                           [false _] "\uf00d")) " ")
-          " "))))) (var weather (resume weather))
-
-(defn print-line [ntb]
-  # @todo find why neilcheck must be in fn scope
-  (def neilcheck
-    (ev/spawn
-      (protect (init))
-      (tell
-        (forever
-          (def r
-            (string "\uf5d6 "
-                    (match
-                      (protect
-                        (if-let [r (:task/running neil)]
-                          (let [[rid {:name n :project pid :work-intervals iw}] r
-                                {:name p :client cid} (:by-id neil pid)
-                                {:abbrev c} (:by-id neil cid)
-                                {:start s :note t} (last iw)]
-                            (string/format "\uf04b %s $%s @%s #%s %s" (utils/durf (- (os/time) s)) c p rid n))
-                          (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
-                                {:name p :client cid} (:by-id neil pid)
-                                {:abbrev c} (:by-id neil cid)
-                                dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                            (string/format "\uf04c %s $%s @%s #%s %s" (utils/durf dur) c p rid n))))
-                      [true m] m
-                      [false e] "loading")))
-          (yield r)))))
+(var weather "")
+(ev/spawn
+  (def b @"")
+  (def c (curl/easy/init))
+  (def cp |(-> (comptime (os/getenv "HOME")) (path/join $) slurp string/trim))
+  (:setopt c
+           :url (string "api.openweathermap.org/data/2.5/weather?q=" (cp "/.config/barista/place")
+                        "&units=metric&appid=" (cp "/.config/barista/wmp"))
+           :write-function |(buffer/push-string b $)
+           :no-progress? true)
 
   (forever
-    (def start (os/clock))
-    (def n (os/date (os/time) true))
-    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (resume weather)))
-    (def ts (resume timestamp))
-    (def netp (resume checknet))
-    (def task (resume neilcheck))
-    (if ntb
-      # @todo fiberize
-      (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
-            light (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string "\uf5dd "))
-            batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 "))]
-        (printf "%s %s %s%% %s%% %s %s" weather task light batt ts netp))
-      (printf "%s %s %s %s" weather task ts netp))
-    (flush)
-    (def dur (- (os/clock) start))
-    (unless (>= dur 1) (ev/sleep (- 1 dur)))))
+    (def res (:perform c))
+    (when (not (zero? res))
+      (error (string "Cannot fetch: " (curl/easy/strerror res))))
+    (def m ((json/decode b) "main"))
+    (set weather (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+    (buffer/clear b)
+    (ev/sleep 900)))
 
+(var ts "")
+(ev/spawn
+  (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
+
+  (forever
+    (def n (os/date (os/time) true))
+    (set ts
+         (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
+                        (days (n :week-day))
+                        (n :year)
+                        (utils/pad (inc (n :month)))
+                        (utils/pad (inc (n :month-day)))
+                        (n :hours)
+                        (utils/pad (n :minutes))
+                        (utils/pad (n :seconds))))
+    (ev/sleep 1)))
+
+
+(var netp "")
+(ev/spawn
+  (forever
+    (set netp
+         (string
+           "\uf700 "
+           (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
+                          (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
+                            [true _] "\uf00c"
+                            [false _] "\uf00d")) " ")
+           " "))
+    (ev/sleep 10)))
+
+(var task "Connecting")
+(ev/spawn
+  (tell
+    (forever
+      (set task (string "\uf5d6 "
+                        (match
+                          (protect
+                            (if-let [r (:task/running neil)]
+                              (let [[rid {:name n :project pid :work-intervals iw}] r
+                                    {:name p :client cid} (:by-id neil pid)
+                                    {:abbrev c} (:by-id neil cid)
+                                    {:start s :note t} (last iw)]
+                                (string/format "\uf04b %s $%s @%s #%s %s" (utils/durf (- (os/time) s)) c p rid n))
+                              (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
+                                    {:name p :client cid} (:by-id neil pid)
+                                    {:abbrev c} (:by-id neil cid)
+                                    dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
+                                (string/format "\uf04c %s $%s @%s #%s %s" (utils/durf dur) c p rid n))))
+                          [true m] m
+                          [false e] "Problems!!!")))
+      (ev/sleep 1))))
+
+(var batt "")
+(var light "")
 (defn main [_ &opt ntb]
   (default ntb false)
-  (ev/call print-line ntb))
+  (ev/spawn
+    (when ntb
+      (ev/spawn
+        (def lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $) slurp string/trim scan-number))
+        (forever
+          (set light
+               (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string "\uf5dd ")))
+          (ev/sleep 1)))
+      (ev/spawn
+        (forever
+          (set batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 ")))
+          (ev/sleep 60))))
+    (forever
+      (if ntb
+        (printf "%s %s %s%% %s%% %s %s" weather task batt light ts netp)
+        (printf "%s %s %s %s" weather task ts netp))
+      (flush)
+      (ev/sleep 1))))
