@@ -10,81 +10,82 @@
 (def appid (string/trim (slurp "/home/pepe/.config/barista/wmp")))
 (def place (string/trim (slurp "/home/pepe/.config/barista/place")))
 
-(defn fetch-weather
-  []
-  (def c (curl/easy/init))
-  (def b @"")
-  (:setopt c
-           :url (string "api.openweathermap.org/data/2.5/weather?q=" place "&units=metric&appid=" appid)
-           :write-function |(buffer/push-string b $)
-           :no-progress? true)
-  (forever
-    (def res (:perform c))
-    (when (not (zero? res))
-      (error (string "Cannot fetch: " (curl/easy/strerror res))))
-    (def m ((json/decode b) "main"))
-    (def r (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
-    (buffer/clear b)
-    (yield r)))
-
-(defn neilcheck []
-  (protect (init))
-  (tell
+(def weather
+  (ev/spawn
+    (def c (curl/easy/init))
+    (def b @"")
+    (:setopt c
+             :url (string "api.openweathermap.org/data/2.5/weather?q=" place "&units=metric&appid=" appid)
+             :write-function |(buffer/push-string b $)
+             :no-progress? true)
     (forever
-      (def r
-        (string "\uf5d6 "
-                (match
-                  (protect
-                    (if-let [r (:task/running neil)]
-                      (let [[rid {:name n :project pid :work-intervals iw}] r
-                            {:name p :client cid} (:by-id neil pid)
-                            {:abbrev c} (:by-id neil cid)
-                            {:start s :note t} (last iw)]
-                        (string/format "\uf04b %s $%s @%s - #%s %s" (utils/durf (- (os/time) s)) c p rid n))
-                      (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
-                            {:name p :client cid} (:by-id neil pid)
-                            {:abbrev c} (:by-id neil cid)
-                            dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
-                        (string/format "\uf04c %s $%s @%s #%s - %s" (utils/durf dur) c p rid n))))
-                  [true m] m
-                  [false e] "loading")))
+      (def res (:perform c))
+      (when (not (zero? res))
+        (error (string "Cannot fetch: " (curl/easy/strerror res))))
+      (def m ((json/decode b) "main"))
+      (def r (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+      (buffer/clear b)
       (yield r))))
 
+(def timestamp
+  (ev/spawn
+    (forever
+      (def n (os/date (os/time) true))
+      (yield
+        (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
+                       (days (n :week-day))
+                       (n :year)
+                       (utils/pad (inc (n :month)))
+                       (utils/pad (inc (n :month-day)))
+                       (n :hours)
+                       (utils/pad (n :minutes))
+                       (utils/pad (n :seconds)))))))
+
+(def checknet
+  (ev/spawn
+    (forever
+      (yield
+        (string
+          "\uf700 "
+          (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
+                         (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
+                           [true _] "\uf00c"
+                           [false _] "\uf00d")) " ")
+          " "))))) (var weather (resume weather))
+
 (defn print-line [ntb]
-  (def weatherf (ev/call fetch-weather))
-  (def neilcheckf (ev/call neilcheck))
-  (def timestamp
+  # @todo find why neilcheck must be in fn scope
+  (def neilcheck
     (ev/spawn
-      (forever
-        (def n (os/date (os/time) true))
-        (yield
-          (string/format " \uf5ef %s %i/%s/%s %i:%s:%s"
-                         (days (n :week-day))
-                         (n :year)
-                         (utils/pad (inc (n :month)))
-                         (utils/pad (inc (n :month-day)))
-                         (n :hours)
-                         (utils/pad (n :minutes))
-                         (utils/pad (n :seconds)))))))
-  (def checknet
-    (ev/spawn
-      (forever
-        (yield
-          (string
-            "\uf700 "
-            (string/join (seq [[a p] :pairs {"ocean-one" 443 "ocean-three" 443 "neil" 6660}]
-                           (match (protect (with [c (net/connect (string a ".laststar.work") p)]))
-                             [true _] "\uf00c"
-                             [false _] "\uf00d")) " ")
-            " ")))))
-  (var weather (resume weatherf))
+      (protect (init))
+      (tell
+        (forever
+          (def r
+            (string "\uf5d6 "
+                    (match
+                      (protect
+                        (if-let [r (:task/running neil)]
+                          (let [[rid {:name n :project pid :work-intervals iw}] r
+                                {:name p :client cid} (:by-id neil pid)
+                                {:abbrev c} (:by-id neil cid)
+                                {:start s :note t} (last iw)]
+                            (string/format "\uf04b %s $%s @%s #%s %s" (utils/durf (- (os/time) s)) c p rid n))
+                          (let [[rid {:name n :project pid :work-intervals iw}] (:task/last-ran neil)
+                                {:name p :client cid} (:by-id neil pid)
+                                {:abbrev c} (:by-id neil cid)
+                                dur (reduce (fn [r x] (+ r (- (x :end) (x :start)))) 0 iw)]
+                            (string/format "\uf04c %s $%s @%s #%s %s" (utils/durf dur) c p rid n))))
+                      [true m] m
+                      [false e] "loading")))
+          (yield r)))))
+
   (forever
     (def start (os/clock))
     (def n (os/date (os/time) true))
-    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (resume fetch-weather)))
+    (when (and (zero? (n :seconds)) (zero? (mod (n :minutes) 15))) (set weather (resume weather)))
     (def ts (resume timestamp))
-    (def task (resume neilcheckf))
     (def netp (resume checknet))
+    (def task (resume neilcheck))
     (if ntb
       # @todo fiberize
       (let [lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $0) slurp string/trim scan-number)
@@ -98,5 +99,4 @@
 
 (defn main [_ &opt ntb]
   (default ntb false)
-  (def f (ev/call print-line ntb))
-  (ev/go f))
+  (ev/call print-line ntb))
