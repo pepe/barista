@@ -6,9 +6,9 @@
 (import json)
 
 (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
-
-(def appid (string/trim (slurp "/home/pepe/.config/barista/wmp")))
-(def place (string/trim (slurp "/home/pepe/.config/barista/place")))
+(def home (os/getenv "HOME"))
+(def appid (string/trim (slurp (string home "/.config/barista/wmp"))))
+(def place (string/trim (slurp (string home "/.config/barista/place"))))
 
 (def weather
   (ev/spawn
