@@ -43,7 +43,6 @@
                         (utils/pad (n :seconds))))
     (ev/sleep 1)))
 
-
 (var netp "")
 (ev/spawn
   (forever
@@ -55,7 +54,7 @@
                             [true _] "\uf00c"
                             [false _] "\uf00d")) " ")
            " "))
-    (ev/sleep 10)))
+    (ev/sleep 60)))
 
 (var task "Connecting")
 (ev/spawn
