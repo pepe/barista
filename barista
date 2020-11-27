@@ -95,8 +95,10 @@
           (set batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 ")))
           (ev/sleep 60))))
     (forever
+      (def s (os/clock))
       (if ntb
         (printf "%s %s %s%% %s%% %s %s" weather task batt light ts netp)
         (printf "%s %s %s %s" weather task ts netp))
       (flush)
-      (ev/sleep 1))))
+      (def dur (- (os/clock) s))
+      (when (< dur 1) (ev/sleep (- 1 dur))))))
