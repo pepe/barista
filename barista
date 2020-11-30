@@ -5,8 +5,15 @@
 (import curl)
 (import json)
 
-
+# state
 (var weather "")
+(var ts "")
+(var netp "")
+(var task "Connecting")
+(var batt "")
+(var light "")
+
+# async
 (ev/spawn
   (def b @"")
   (def c (curl/easy/init))
@@ -21,12 +28,11 @@
     (def res (:perform c))
     (when (not (zero? res))
       (error (string "Cannot fetch: " (curl/easy/strerror res))))
-    (def m ((json/decode b) "main"))
-    (set weather (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" (m "feels_like") (m "temp") (m "humidity") (m "pressure")))
+    (def {"feels_like" f "temp" t "humidity" h "pressure" p} ((json/decode b) "main"))
+    (set weather (string/format "\ufa8f %.1f °C | %.1f °C | %i%% | %i hPa" f t h p))
     (buffer/clear b)
     (ev/sleep 900)))
 
-(var ts "")
 (ev/spawn
   (def days ["ne" "po" "ůt" "st" "čt" "pá" "so"])
 
@@ -43,7 +49,6 @@
                         (utils/pad (n :seconds))))
     (ev/sleep 1)))
 
-(var netp "")
 (ev/spawn
   (forever
     (set netp
@@ -56,7 +61,6 @@
            " "))
     (ev/sleep 60)))
 
-(var task "Connecting")
 (ev/spawn
   (tell
     (forever
@@ -78,8 +82,6 @@
                           [false e] "Problems!!!")))
       (ev/sleep 1))))
 
-(var batt "")
-(var light "")
 (defn main [_ &opt ntb]
   (default ntb false)
   (ev/spawn
