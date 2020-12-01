@@ -12,6 +12,7 @@
 (var task "Connecting")
 (var batt "")
 (var light "")
+(var cpu-mem "")
 
 # async
 (ev/spawn
@@ -82,6 +83,20 @@
                           [false e] "Problems!!!")))
       (ev/sleep 1))))
 
+(ev/spawn
+  (forever
+    (set cpu-mem
+         (string/format "m: %i%%"
+                        (->> "/proc/meminfo"
+                             slurp
+                             (peg/match '(some (+ (* (thru "MemTotal:") :s+ ':d+ " kB") (* (thru "MemAvailable:") :s+ ':d+ " kB"))))
+                             reverse
+                             (map scan-number)
+                             (apply /)
+                             (* 100)
+                             math/floor)))
+    (ev/sleep 60)))
+
 (defn main [_ &opt ntb]
   (default ntb false)
   (ev/spawn
@@ -100,7 +115,7 @@
       (def s (os/clock))
       (if ntb
         (printf "%s %s %s%% %s%% %s %s" weather task batt light ts netp)
-        (printf "%s %s %s %s" weather task ts netp))
+        (printf "%s %s %s %s %s" weather task ts netp cpu-mem))
       (flush)
       (def dur (- (os/clock) s))
       (when (< dur 1) (ev/sleep (- 1 dur))))))
