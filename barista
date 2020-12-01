@@ -12,7 +12,8 @@
 (var task "Connecting")
 (var batt "")
 (var light "")
-(var cpu-mem "")
+(var mem "")
+(var cpu "")
 
 # async
 (ev/spawn
@@ -84,9 +85,20 @@
       (ev/sleep 1))))
 
 (ev/spawn
+  (defn parse-cpu []
+    (def [user nice system idle iowait irq softirq steal
+          guest guest_nice]
+      (->> "/proc/stat" slurp
+           (peg/match (comptime (peg/compile '(* (thru "cpu ") (repeat 20 (+ ':d+ (? :s)))))))
+           (map scan-number)))
+    (def used (+ user nice system irq softirq steal guest guest_nice))
+    [used (+ used idle iowait)])
+  (var [old-used old-total] (parse-cpu))
+
   (forever
-    (set cpu-mem
-         (string/format "m: %i%%"
+    (ev/sleep 1)
+    (set mem
+         (string/format "%i%%"
                         (->> "/proc/meminfo"
                              slurp
                              (peg/match '(some (+ (* (thru "MemTotal:") :s+ ':d+ " kB") (* (thru "MemAvailable:") :s+ ':d+ " kB"))))
@@ -95,7 +107,13 @@
                              (apply /)
                              (* 100)
                              math/floor)))
-    (ev/sleep 60)))
+    (def [used total] (parse-cpu))
+    (def usage (* 100 (/ (- used old-used)
+                         (- total old-total))))
+    (set cpu (string/format "%i%%" (math/round usage)))
+    (set old-used used)
+    (set old-total total)))
+
 
 (defn main [_ &opt ntb]
   (default ntb false)
@@ -115,7 +133,7 @@
       (def s (os/clock))
       (if ntb
         (printf "%s %s %s%% %s%% %s %s" weather task batt light ts netp)
-        (printf "%s %s %s %s %s" weather task ts netp cpu-mem))
+        (printf "%s %s %s %s %s %s" weather task ts netp cpu mem))
       (flush)
       (def dur (- (os/clock) s))
       (when (< dur 1) (ev/sleep (- 1 dur))))))
