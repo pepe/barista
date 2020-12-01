@@ -98,7 +98,7 @@
   (forever
     (ev/sleep 1)
     (set mem
-         (string/format "\uf6c4 %i%%"
+         (string/format "%i%%"
                         (->> "/proc/meminfo"
                              slurp
                              (peg/match '(some (+ (* (thru "MemTotal:") :s+ ':d+ " kB") (* (thru "MemAvailable:") :s+ ':d+ " kB"))))
@@ -111,7 +111,7 @@
     (def [used total] (parse-cpu))
     (def usage (* 100 (/ (- used old-used)
                          (- total old-total))))
-    (set cpu (string/format "\uf6c3 %i%%" (math/round usage)))
+    (set cpu (string/format "\ue28c %i%%" (math/round usage)))
     (set old-used used)
     (set old-total total)))
 
