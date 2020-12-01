@@ -98,19 +98,20 @@
   (forever
     (ev/sleep 1)
     (set mem
-         (string/format "%i%%"
+         (string/format "\uf6c4 %i%%"
                         (->> "/proc/meminfo"
                              slurp
                              (peg/match '(some (+ (* (thru "MemTotal:") :s+ ':d+ " kB") (* (thru "MemAvailable:") :s+ ':d+ " kB"))))
                              reverse
                              (map scan-number)
                              (apply /)
+                             (- 1)
                              (* 100)
                              math/floor)))
     (def [used total] (parse-cpu))
     (def usage (* 100 (/ (- used old-used)
                          (- total old-total))))
-    (set cpu (string/format "%i%%" (math/round usage)))
+    (set cpu (string/format "\uf6c3 %i%%" (math/round usage)))
     (set old-used used)
     (set old-total total)))
 
@@ -123,17 +124,17 @@
         (def lp |(-> "/sys/class/backlight/intel_backlight/" (path/join $) slurp string/trim scan-number))
         (forever
           (set light
-               (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string "\uf5dd ")))
+               (->> (lp "max_brightness") (/ (lp "actual_brightness")) (* 100) math/floor (string/format "\uf5dd %i%%")))
           (ev/sleep 1)))
       (ev/spawn
         (forever
-          (set batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string "\uf578 ")))
+          (set batt (->> "/sys/class/power_supply/BAT0/capacity" slurp string/trim (string/format "\uf578 %s%%")))
           (ev/sleep 60))))
     (forever
       (def s (os/clock))
       (if ntb
-        (printf "%s %s %s%% %s%% %s %s" weather task batt light ts netp)
-        (printf "%s %s %s %s %s %s" weather task ts netp cpu mem))
+        (printf "%s %s %s %s %s %s %s %s" weather task batt light cpu mem ts netp)
+        (printf "%s %s %s %s %s %s" weather task cpu mem ts netp))
       (flush)
       (def dur (- (os/clock) s))
       (when (< dur 1) (ev/sleep (- 1 dur))))))
